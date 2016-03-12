@@ -1,0 +1,29 @@
+[
+  {
+    "fieldInput": "id:increments",
+    "htmlType": "",
+    "validations": "",
+    "searchable": false,
+    "fillable": false,
+    "primary": true
+  },
+  {
+    "fieldInput": "total_amount:decimal",
+    "htmlType": "number"
+  },
+  {
+    "fieldInput": "account_type:string",
+    "htmlType": "select:'HELP', 'Annual Dues', 'Monthly Dues'",
+    "searchable": true
+  },
+  {
+    "fieldInput": "status:string",
+    "htmlType": "select:'Saved in Main','Sent to Province','Saved in Province','Paid','Done'",
+    "searchable": true
+  },
+  {
+    "fieldInput": "enum_test:enum",
+    "htmlType": "enum:Mon,Tue,Wed,Thu,Fri,Sat,Sun",
+    "searchable": true
+  }
+]
