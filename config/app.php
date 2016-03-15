@@ -162,6 +162,12 @@ return [
         \InfyOm\Generator\InfyOmGeneratorServiceProvider::class,
         \InfyOm\CoreTemplates\CoreTemplatesServiceProvider::class,
 
+
+        Bausch\LaravelFortress\ServiceProvider::class,
+
+        Centaur\CentaurServiceProvider::class, 
+        
+
     ],
 
     /*
@@ -212,6 +218,9 @@ return [
         'Html'      => Collective\Html\HtmlFacade::class,
         'Flash'     => Laracasts\Flash\Flash::class,
 
+        'Helpers' => App\Helpers::class
+
     ],
+
 
 ];

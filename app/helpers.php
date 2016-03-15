@@ -1,10 +1,12 @@
-namespace App\Helpers;
+<?php
+namespace App;
+use App\User;
 
-class CustomHelpers
+class Helpers
 {
-    function set_active($path, $active = 'active') {
+    static function getProvince($id) {
 
-        return call_user_func_array('Request::is', (array)$path) ? $active : '';
+        return User::find($id)->province()->first()->name;
 
     }
 }

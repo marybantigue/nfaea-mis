@@ -113,4 +113,8 @@ class User extends Authenticatable
         return $this->roles()->lists('name');
     }
 
+    public function isSuperAdmin(){
+        return $this->roles()->where('name', '=', 'admin')->exists();
+    }
+
 }

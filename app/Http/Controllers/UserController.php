@@ -2,175 +2,287 @@
 
 namespace App\Http\Controllers;
 
+use Mail;
+use Sentinel;
 use App\Http\Requests;
-use App\Http\Requests\CreateUserRequest;
-use App\Http\Requests\UpdateUserRequest;
-use App\Repositories\UserRepository;
-use App\Repositories\ProvinceRepository;
+use Centaur\AuthManager;
 use Illuminate\Http\Request;
-use Flash;
-use InfyOm\Generator\Controller\AppBaseController;
-use Prettus\Repository\Criteria\RequestCriteria;
-use Response;
+use Cartalyst\Sentinel\Users\IlluminateUserRepository;
 
-class UserController extends AppBaseController
+use App\Repositories\ProvinceRepository;
+use App\Repositories\UserRepository;
+
+
+class UserController extends Controller
 {
-    /** @var  UserRepository */
-    private $userRepository;
+    /** @var Cartalyst\Sentinel\Users\IlluminateUserRepository */
+    protected $userRepository;
+
+    /** @var Centaur\AuthManager */
+    protected $authManager;
+
     private $provinceRepository;
+    private $userRepo;
 
-    function __construct(UserRepository $userRepo, ProvinceRepository $provinceRepo)
+    public function __construct(AuthManager $authManager, ProvinceRepository $provinceRepository, UserRepository $userRepo)
     {
-        $this->userRepository = $userRepo;
-        $this->provinceRepository = $provinceRepo;
+        // Middleware
+        $this->middleware('sentinel.auth');
+        $this->middleware('sentinel.access:users.create', ['only' => ['create', 'store']]);
+        $this->middleware('sentinel.access:users.view', ['only' => ['index', 'show']]);
+        $this->middleware('sentinel.access:users.update', ['only' => ['edit', 'update']]);
+        $this->middleware('sentinel.access:users.destroy', ['only' => ['destroy']]);
+
+        // Dependency Injection
+        $this->userRepository = app()->make('sentinel.users');
+        $this->authManager = $authManager;
+        $this->provinceRepository = $provinceRepository;
+        $this->userRepo = $userRepo;
     }
 
     /**
-     * Display a listing of the User.
+     * Display a listing of the users.
      *
-     * @param Request $request
-     * @return Response
+     * @return \Illuminate\Http\Response
      */
-    public function index(Request $request)
+    public function index()
     {
-        $this->userRepository->pushCriteria(new RequestCriteria($request));
-        $users = $this->userRepository->paginate(10);
+        $users = $this->userRepository->createModel()->paginate(15);
 
-        return view('users.index')
-            ->with('users', $users);
+        return view('Centaur::users.index', ['users' => $users]);
     }
 
     /**
-     * Show the form for creating a new User.
+     * Show the form for creating a new user.
      *
-     * @return Response
+     * @return \Illuminate\Http\Response
      */
     public function create()
     {
-        $provinces = $this->provinceRepository->provinces();
-        
-        return view('users.create')->with('provinces', $provinces);
+        $roles = app()->make('sentinel.roles')->createModel()->all();
+
+        return view('Centaur::users.create', ['roles' => $roles]);
     }
 
     /**
-     * Store a newly created User in storage.
+     * Store a newly created user in storage.
      *
-     * @param CreateUserRequest $request
-     *
-     * @return Response
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
      */
-    public function store(CreateUserRequest $request)
+    public function store(Request $request)
     {
-        $input = $request->all();
+        // Validate the form data
+        $result = $this->validate($request, [
+            'email' => 'required|email|max:255|unique:users',
+            'password' => 'required|confirmed|min:6',
+        ]);
 
-        $user = $this->userRepository->create($input);
+        // Assemble registration credentials and attributes
+        $credentials = [
+            'email' => trim($request->get('email')),
+            'password' => $request->get('password'),
+            'first_name' => $request->get('first_name', null),
+            'last_name' => $request->get('last_name', null)
+        ];
+        $activate = (bool)$request->get('activate', false);
 
-        Flash::success('User saved successfully.');
+        // Attempt the registration
+        $result = $this->authManager->register($credentials, $activate);
 
-        return redirect(route('users.index'));
+        if ($result->isFailure()) {
+            return $result->dispatch;
+        }
+
+        // Do we need to send an activation email?
+        if (!$activate) {
+            $code = $result->activation->getCode();
+            $email = $result->user->email;
+            Mail::queue(
+                'centaur.email.welcome',
+                ['code' => $code, 'email' => $email],
+                function ($message) use ($email) {
+                    $message->to($email)
+                        ->subject('Your account has been created');
+                }
+            );
+        }
+
+        // Assign User Roles
+        foreach ($request->get('roles', []) as $slug => $id) {
+            $role = Sentinel::findRoleBySlug($slug);
+            if ($role) {
+                $role->users()->attach($result->user);
+            }
+        }
+
+        $result->setMessage("User {$request->get('email')} has been created.");
+        return $result->dispatch(route('users.index'));
     }
 
     /**
-     * Display the specified User.
+     * Display the specified user.
      *
-     * @param  int $id
-     *
-     * @return Response
+     * @param  string  $hash
+     * @return \Illuminate\Http\Response
      */
     public function show($id)
     {
-        $user = $this->userRepository->findWithoutFail($id);
-
-        if (empty($user)) {
-            Flash::error('User not found');
-
-            return redirect(route('users.index'));
-        }
-
-        return view('users.show')->with('user', $user);
+        // The user detail page has not been included for the sake of brevity.
+        // Change this to point to the appropriate view for your project.
+        return redirect()->route('users.index');
     }
 
     /**
-     * Show the form for editing the specified User.
+     * Show the form for editing the specified user.
      *
-     * @param  int $id
-     *
-     * @return Response
+     * @param  string  $hash
+     * @return \Illuminate\Http\Response
      */
     public function edit($id)
     {
-        $user = $this->userRepository->findWithoutFail($id);
+        // Fetch the user object
+        // $id = $this->decode($hash);
+        $user = $this->userRepository->findById($id);
+
+        //feetch available provinces
         $provinces = $this->provinceRepository->provinces();
-        $roles = $this->userRepository->rolesAvailable();
-        if (empty($user)) {
-            Flash::error('User not found');
+        //$provinces = Province::lists('name', 'id');
+        //$this->memberRepository->provinces();
+        
 
-            return redirect(route('users.index'));
-        }
+        // Fetch the available roles
+        $roles = app()->make('sentinel.roles')->createModel()->all();
 
-        return view('users.edit')->with(['user' => $user,
-            'provinces' => $provinces,
-            'roles' => $roles
+        if ($user) {
+            return view('Centaur::users.edit', [
+                'user' => $user,
+                'roles' => $roles,
+                'provinces' => $provinces
             ]);
+        }
+
+        session()->flash('error', 'Invalid user.');
+        return redirect()->back();
     }
 
     /**
-     * Update the specified User in storage.
+     * Update the specified user in storage.
      *
-     * @param  int              $id
-     * @param UpdateUserRequest $request
-     *
-     * @return Response
+     * @param  \Illuminate\Http\Request  $request
+     * @param  string  $hash
+     * @return \Illuminate\Http\Response
      */
-    public function update($id, UpdateUserRequest $request)
+    public function update(Request $request, $id)
     {
-        $user = $this->userRepository->findWithoutFail($id);
-        //return $request->all();
-        if (empty($user)) {
-            Flash::error('User not found');
+        // Decode the user id
+        // $id = $this->decode($hash);
 
-            return redirect(route('users.index'));
+        // Validate the form data
+        $result = $this->validate($request, [
+            'email' => 'required|email|max:255|unique:users,email,'.$id,
+            'password' => 'confirmed|min:6',
+        ]);
+
+        // Assemble the updated attributes
+        $attributes = [
+            'email' => trim($request->get('email')),
+            'first_name' => $request->get('first_name', null),
+            'last_name' => $request->get('last_name', null)
+        ];
+
+
+        // Do we need to update the password as well?
+        if ($request->has('password')) {
+            $attributes['password'] = $request->get('password');
         }
 
-        $user = $this->userRepository->update($request->all(), $id);
-        $this->insertRole($id, $request['role']);
-        Flash::success('User updated successfully.');
+        // Fetch the user object
+        $user = $this->userRepository->findById($id);
+        if (!$user) {
+            if ($request->ajax()) {
+                return response()->json("Invalid user.", 422);
+            }
+            session()->flash('error', 'Invalid user.');
+            return redirect()->back()->withInput();
+        }
 
-        return redirect(route('users.index'));
+        // Update the user
+        $user = $this->userRepository->update($user, $attributes);
+
+        // Update role assignments
+        $roleIds = array_values($request->get('roles', []));
+        $user->roles()->sync($roleIds);
+
+        // update activation
+        if ($request->has('activate') ) {
+           //$user->activations()->sync($request->get('activate'));
+            //return $request->get('activate');
+           $user->activations->first()->update(['completed' => $request->get('activate')]);
+        }
+        
+        //update province
+
+       if($request->get('province_id')){
+
+           // $user->update(['province_id' =>  $request->get('province_id')]);
+            //return "hello";
+            $usr = $this->userRepo->find($id);
+            //$usr->update(['province_id' =>  $request->get('province_id')]);
+            $usr->province_id = $request->get('province_id');
+            $usr->save();
+            //return $usr;
+        }
+
+
+
+        // All done
+        if ($request->ajax()) {
+            return response()->json(['user' => $user], 200);
+        }
+
+        session()->flash('success', "{$user->email} has been updated.");
+        return redirect()->route('users.index');
     }
 
     /**
-     * Remove the specified User from storage.
+     * Remove the specified user from storage.
      *
-     * @param  int $id
-     *
-     * @return Response
+     * @param  string  $hash
+     * @return \Illuminate\Http\Response
      */
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
-        $user = $this->userRepository->findWithoutFail($id);
+        // Fetch the user object
+        //$id = $this->decode($hash);
+        $user = $this->userRepository->findById($id);
 
-        if (empty($user)) {
-            Flash::error('User not found');
+        // Remove the user
+        $user->delete();
 
-            return redirect(route('users.index'));
+        // All done
+        $message = "{$user->email} has been removed.";
+        if ($request->ajax()) {
+            return response()->json([$message], 200);
         }
 
-        $this->userRepository->delete($id);
-
-        Flash::success('User deleted successfully.');
-
-        return redirect(route('users.index'));
+        session()->flash('success', $message);
+        return redirect()->route('users.index');
     }
 
-    //insert to role
-    private function insertRole($id, $roles)
-    {   
-        
-        $user =$this->userRepository->findWithoutFail($id);
-        foreach($roles as $role):
-            $user->roles()->attach($role['role_id']);
-        endforeach;
-        
-    }
+    /**
+     * Decode a hashid
+     * @param  string $hash
+     * @return integer|null
+     */
+    // protected function decode($hash)
+    // {
+    //     $decoded = $this->hashids->decode($hash);
+
+    //     if (!empty($decoded)) {
+    //         return $decoded[0];
+    //     } else {
+    //         return null;
+    //     }
+    // }
 }

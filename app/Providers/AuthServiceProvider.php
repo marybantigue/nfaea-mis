@@ -5,6 +5,10 @@ namespace App\Providers;
 use Illuminate\Contracts\Auth\Access\Gate as GateContract;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 
+
+use App\Models\invoice;
+use App\Policies\invoicePolicy;
+
 class AuthServiceProvider extends ServiceProvider
 {
     /**
@@ -14,6 +18,8 @@ class AuthServiceProvider extends ServiceProvider
      */
     protected $policies = [
         'App\Model' => 'App\Policies\ModelPolicy',
+        'App\Models\invoice' => 'App\Policies\invoicePolicy',
+        invoice::class => invoicePolicy::class,
     ];
 
     /**
@@ -26,8 +32,8 @@ class AuthServiceProvider extends ServiceProvider
     {
         $this->registerPolicies($gate);
 
-        $gate->define('manage-users', function ($user) {
-            return $user->role()->name === 'admin';
-        });
+        /*$gate->define('create-invoice', function ($user) {
+            return $user->isMain();
+        });*/
     }
 }

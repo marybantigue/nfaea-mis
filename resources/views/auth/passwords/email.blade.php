@@ -1,4 +1,4 @@
-@extends('layouts.app')
+@extends('centaur.layout')
 
 <!-- Main Content -->
 @section('content')

@@ -23,9 +23,12 @@
             <td>
                     
                 <a href="{!! route('invoices.editFromProvince', [$invoice->id, $invoiceprov->pivot->province_id ]) !!}"><i class="glyphicon glyphicon-edit"></i></a>
+
+                 @if (Sentinel::inRole('main'))
                 <a href="{!! route('invoices.delete', [$invoice->id]) !!}" onclick="return confirm('Are you sure wants to delete this invoice?')">
                     <i class="glyphicon glyphicon-trash"></i>
                 </a>
+                @endif
             </td>
         </tr>
         @endforeach

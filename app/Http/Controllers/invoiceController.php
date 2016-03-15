@@ -12,6 +12,13 @@ use InfyOm\Generator\Controller\AppBaseController;
 use Prettus\Repository\Criteria\RequestCriteria;
 use Response;
 use Auth;
+use Gate;
+
+use Mail;
+use Sentinel;
+use Centaur\AuthManager;
+use Cartalyst\Sentinel\Users\IlluminateUserRepository;
+
 
 class invoiceController extends AppBaseController
 {
@@ -20,8 +27,20 @@ class invoiceController extends AppBaseController
 
     function __construct(invoiceRepository $invoiceRepo)
     {
-        $this->middleware('auth');
+        //$this->middleware('auth');
         $this->invoiceRepository = $invoiceRepo;
+
+        // Middleware
+        $this->middleware('sentinel.auth');
+
+        //$this->middleware('sentinel.role:subscriber');
+
+        $this->middleware('sentinel.role:provincial');
+        //$this->middleware('sentinel.role:main');
+        // Fetch the Role Repository from the IoC container
+        //$this->roleRepository = app()->make('sentinel.roles');
+
+
     }
 
     /**
@@ -32,19 +51,16 @@ class invoiceController extends AppBaseController
      */
     public function index(Request $request)
     {
-        //return $this->invoiceRepository->provinces();
-        //return $this->invoiceRepository->invoicesProvince(Auth::user()->province_id);
-        //return Auth::user()->province_id;
-        $this->invoiceRepository->pushCriteria(new RequestCriteria($request));
-        //return $this->invoiceRepository->findByProvince(Auth::user()->province_id);
-        //return Auth::user()->roles()->first()->id;
+    $this->invoiceRepository->pushCriteria(new RequestCriteria($request));
 
+        
         //if main
-        if(Auth::user()->roles()->first()->id ==3)
+        if(Sentinel::inRole('main'))
             $invoices=  $this->invoiceRepository->invoicesProvinces();    
         //if province
-        else if (Auth::user()->roles()->first()->id == 1)
-            $invoices = $this->invoiceRepository->findByProvince(Auth::user()->province_id);
+        else if (Sentinel::inRole('provincial'))
+           //return Sentinel::getUser();
+           $invoices = $this->invoiceRepository->findByProvince(Sentinel::getUser()->province_id);
         
 
         return view('invoices.index')
@@ -58,6 +74,18 @@ class invoiceController extends AppBaseController
      */
     public function create()
     {
+        //return json_encode(Auth::user()->isMain());
+        //$this->authorize('create');
+
+        /*if (Gate::denies('create')) {
+            dd("oops");
+        }*/
+        if(!Sentinel::inRole('main')){
+             //Flash::error('invoice not found');
+            return redirect('invoices');
+            //return;
+        }
+
         $members = $this->invoiceRepository->membersNames();
         $members = $members->toArray();
         return view('invoices.create')->with(['members' => $members]);
@@ -72,7 +100,11 @@ class invoiceController extends AppBaseController
      */
     public function store(CreateinvoiceRequest $request)
     {
-        
+        if(!Sentinel::inRole('main')){
+             //Flash::error('invoice not found');
+            return redirect('invoices');
+            //return;
+        }
         $input = $request->all();
         //return $input['helpmember'];
         //create invoice
@@ -122,6 +154,12 @@ class invoiceController extends AppBaseController
      */
     public function edit($id)
     {
+        if(!Sentinel::inRole('main')){
+             //Flash::error('invoice not found');
+            return redirect('invoices');
+            //return;
+        }
+
         $members = $this->invoiceRepository->membersNames();
         $invoice = $this->invoiceRepository->findWithoutFail($id);
 
@@ -144,8 +182,12 @@ class invoiceController extends AppBaseController
      */
     public function update($id, UpdateinvoiceRequest $request)
     {
+        if(!Sentinel::inRole('main')){
+             //Flash::error('invoice not found');
+            return redirect('invoices');
+            //return;
+        }
         $invoice = $this->invoiceRepository->findWithoutFail($id);
-
         if (empty($invoice)) {
             Flash::error('invoice not found');
 
@@ -168,6 +210,11 @@ class invoiceController extends AppBaseController
      */
     public function destroy($id)
     {
+        if(!Sentinel::inRole('main')){
+             //Flash::error('invoice not found');
+            return redirect('invoices');
+            //return;
+        }
         $invoice = $this->invoiceRepository->findWithoutFail($id);
 
         if (empty($invoice)) {
@@ -213,32 +260,43 @@ class invoiceController extends AppBaseController
     
     public function editFromProvince($id, $province_id)
     {
-        $invoice =  $this->invoiceRepository->findInvoiceFromPivot($id, $province_id);
-        //return $invoice;
-       // return $invoice->members;
-        //return $invoice->province->first()->pivot;
-        //return $invoice->id;
-        //$invoice = $this->invoiceRepository->findWithoutFail($id);
-        //return $invoice->province->find($invoiceprov_id);
-        //return $invoice;
+
+        if(!Sentinel::inRole('provincial')){
+             //Flash::error('invoice not found');
+            return redirect('invoices');
+            //return;
+        }
+        /*$invoice =  $this->invoiceRepository->findInvoiceFromPivot($id, $province_id);*/
+        
+
+
+        $invoice = $this->invoiceRepository->invoiceWithProvince($id, $province_id);
+
         if (empty($invoice)) {
             Flash::error('invoice not found');
 
             return redirect(route('invoices.index'));
         }
 
-        //get current province of logged in user
-        //$province = $invoice->province->find(Auth::user()->province_id);
-        //$invoiceMembers = $invoice->members->where('province_id',  $province->members->first()->province_id);
-            //get invoice_province by province of user and show ID in view and field for remarks
-            //get invoice_members for checkbox
+        $help_members =  $invoice->helpMembers()->paginate(6);
+        //$members = $this->invoiceRepository->provinceMembers($province_id)->paginate(10);
 
+        $members = $invoice->members()->where('province_id', '=', $province_id)->paginate(10);
+
+        //return $members;
         return view('invoices.editFromProvince')
-            ->with(['invoice' => $invoice]);
+            ->with(['invoice' => $invoice,
+                    'members' => $members,
+                    'help_members' => $help_members]);
     }
 
     public function updateFromProvince($id, $province_id, UpdateinvoiceRequest $request)
     {
+        if(!Sentinel::inRole('provincial')){
+             //Flash::error('invoice not found');
+            return redirect('invoices');
+            //return;
+        }
         $invoice =  $this->invoiceRepository->findInvoiceFromPivot($id, $province_id);
        
        //$invoice = $this->invoiceRepository->findWithoutFail($id);

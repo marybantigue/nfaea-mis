@@ -12,6 +12,12 @@ use InfyOm\Generator\Controller\AppBaseController;
 use Prettus\Repository\Criteria\RequestCriteria;
 use Response;
 
+
+use Sentinel;
+use Centaur\AuthManager;
+use Cartalyst\Sentinel\Users\IlluminateUserRepository;
+
+
 class provinceController extends AppBaseController
 {
     /** @var  provinceRepository */
@@ -19,7 +25,14 @@ class provinceController extends AppBaseController
 
     function __construct(provinceRepository $provinceRepo)
     {
-        $this->middleware('auth');
+       // $this->middleware('auth');
+        // Middleware
+        $this->middleware('sentinel.auth');
+
+        $this->middleware('sentinel.role:main');
+        // Fetch the Role Repository from the IoC container
+        //$this->roleRepository = app()->make('sentinel.roles');
+        
         $this->provinceRepository = $provinceRepo;
     }
 
@@ -31,8 +44,11 @@ class provinceController extends AppBaseController
      */
     public function index(Request $request)
     {
+        if(!Sentinel::inRole('main')){
+           return redirect('dashboard');
+        }
         $this->provinceRepository->pushCriteria(new RequestCriteria($request));
-        $provinces = $this->provinceRepository->all();
+        $provinces = $this->provinceRepository->paginate(10);
 
         return view('provinces.index')
             ->with('provinces', $provinces);
@@ -45,6 +61,9 @@ class provinceController extends AppBaseController
      */
     public function create()
     {
+        if(!Sentinel::inRole('main')){
+           return redirect('dashboard');
+        }
         return view('provinces.create');
     }
 
@@ -57,6 +76,9 @@ class provinceController extends AppBaseController
      */
     public function store(CreateprovinceRequest $request)
     {
+        if(!Sentinel::inRole('main')){
+           return redirect('dashboard');
+        }
         $input = $request->all();
 
         $province = $this->provinceRepository->create($input);
@@ -75,6 +97,9 @@ class provinceController extends AppBaseController
      */
     public function show($id)
     {
+        if(!Sentinel::inRole('main')){
+           return redirect('dashboard');
+        }
         $province = $this->provinceRepository->findWithoutFail($id);
 
         if (empty($province)) {
@@ -95,6 +120,9 @@ class provinceController extends AppBaseController
      */
     public function edit($id)
     {
+        if(!Sentinel::inRole('main')){
+           return redirect('dashboard');
+        }
         $province = $this->provinceRepository->findWithoutFail($id);
 
         if (empty($province)) {
@@ -116,6 +144,9 @@ class provinceController extends AppBaseController
      */
     public function update($id, UpdateprovinceRequest $request)
     {
+        if(!Sentinel::inRole('main')){
+           return redirect('dashboard');
+        }
         $province = $this->provinceRepository->findWithoutFail($id);
 
         if (empty($province)) {
@@ -140,6 +171,9 @@ class provinceController extends AppBaseController
      */
     public function destroy($id)
     {
+        if(!Sentinel::inRole('main')){
+           return redirect('dashboard');
+        }
         $province = $this->provinceRepository->findWithoutFail($id);
 
         if (empty($province)) {

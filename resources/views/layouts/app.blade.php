@@ -59,6 +59,8 @@
 
 
                     <li><a href="{{ url("/members") }}">Members</a></li>
+                    <li><a href="{{ url("/roles") }}">Role Management</a></li>
+                    <li><a href="{{ url("/user-roles") }}">User Role Assignments</a></li>
                 </ul>
                 @endif
                 <!-- Right Side Of Navbar -->
@@ -69,11 +71,7 @@
                         <li><a href="{{ url("/register") }}">Register</a></li>
                     @else
                         <li><a  style="color:white">
-                            @if ( Auth::user()->isMain()) 
-                                Central
-                            @else
-                                {{ Auth::user()->province()->first()->name }}
-                            @endif
+                           
                             </a></li>
                         <li class="dropdown">
                             <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-expanded="false">

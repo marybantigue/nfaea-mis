@@ -23,3 +23,4 @@
     @endforeach
     </tbody>
 </table>
+{!! $provinces->links() !!}

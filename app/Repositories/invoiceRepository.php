@@ -57,6 +57,10 @@ class invoiceRepository extends BaseRepository
     public function provinceMembers($province_id){
         //return Member::with('province')->find($province_id);
         return Province::with('members')->find($province_id)->members;
+//        return Member::where('province_id', '=', $province_id)->invoice;
+        //return invoice::helpMembers();
+
+        // get members of the province with invoice poivot
     }
     public function findByProvince($province_id){
         //return Province::with('invoices')->find($province_id)->invoices;
@@ -88,6 +92,16 @@ class invoiceRepository extends BaseRepository
                         $query->where('invoice_id', '=', $id)
                             ->get();
                     }])->find($id);
+    }
+
+    public function invoiceWithProvince($id, $province_id){
+         return invoice::with(
+                ['province'=> function ($query) use ($province_id, $id) {
+                    $query->where('province_id','=', $province_id)
+                            ->where('invoice_id', '=', $id)
+                            ->first();
+                }
+            ])->find($id); 
     }
 
 }

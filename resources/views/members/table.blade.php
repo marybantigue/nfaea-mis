@@ -15,7 +15,7 @@
             <td>{!! $member->id !!}</td>
 			<td>{!! $member->first_name !!}</td>
 			<td>{!! $member->last_name !!}</td>
-            <td>{!! $member->province()->get()->first()->name !!}</td>
+            <td>{!! $member->province()->first()->name !!}</td>
 			<td>{!! $member->created_at !!}</td>
 			<td>{!! $member->updated_at !!}</td>
             <td>
@@ -28,3 +28,5 @@
     @endforeach
     </tbody>
 </table>
+
+{!! $members->links() !!}

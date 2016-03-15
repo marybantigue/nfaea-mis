@@ -12,6 +12,10 @@ use InfyOm\Generator\Controller\AppBaseController;
 use Prettus\Repository\Criteria\RequestCriteria;
 use Response;
 
+use Sentinel;
+use Centaur\AuthManager;
+use Cartalyst\Sentinel\Users\IlluminateUserRepository;
+
 class MemberController extends AppBaseController
 {
     /** @var  MemberRepository */
@@ -19,7 +23,13 @@ class MemberController extends AppBaseController
 
     function __construct(MemberRepository $memberRepo)
     {
-        $this->middleware('auth');
+        // $this->middleware('auth');
+        // Middleware
+        $this->middleware('sentinel.auth');
+        $this->middleware('sentinel.role:main');
+        // Fetch the Role Repository from the IoC container
+        $this->roleRepository = app()->make('sentinel.roles');
+        
         $this->memberRepository = $memberRepo;
     }
 
@@ -32,7 +42,7 @@ class MemberController extends AppBaseController
     public function index(Request $request)
     {
         $this->memberRepository->pushCriteria(new RequestCriteria($request));
-        $members = $this->memberRepository->all();
+        $members = $this->memberRepository->paginate(10);
 
         return view('members.index')
             ->with('members', $members);
